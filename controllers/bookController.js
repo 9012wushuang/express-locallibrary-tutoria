@@ -116,13 +116,48 @@ exports.book_create_post = [
     }
 ];
 
-exports.book_delete_get = (req, res) => {
-	res.send('未实现删除藏书')
+exports.book_delete_get = (req, res, next) => {
+	async.parallel({
+		book: function(callback) {
+			Book.findById(req.params.id).exec(callback)
+		},
+		book_instances: function(callback) {
+			BookInstance.find({'book': req.params.id}).exec(callback)
+		}
+	}, function(err, results) {
+		if (err) {return next(err)}
+		if (results.book == null) {
+			res.redirect('/catalog/books')
+		}
+		
+		res.render('book_delete', {title: 'Delete book', book: results.book, book_instances: results.book_instances})
+	})
 }
 
-exports.book_delete_post = (req, res) => {
-	res.send('未实现删除藏书')
-}
+exports.book_delete_post = [
+	//check
+	(req, res, next) => {
+		async.parallel({
+			book: function(callback) {
+				Book.findById(req.params.id).exec(callback)
+			},
+			book_instances: function(callback) {
+				BookInstance.find({'book': req.params.id}).exec(callback)
+			}
+		}, function(err, results) {
+			if (err) { return next(err); }
+			if (results.book_instances.length > 0) {
+				res.render('book_delete', {title: 'Delete book', book: results.book, book_instances: results.book_instances})
+			}
+			else {
+				Book.findByIdAndRemove(req.body.bookid, function deleteBook(err) {
+					if (err){return next(err)}
+					res.redirect('/catalog/books')
+				})
+			}
+		})
+	}	
+] 
 
 exports.book_update_get = (req, res, next) => {
 	 // Get book, authors and genres for form.
@@ -259,7 +294,7 @@ exports.book_detail = (req, res) => {
 }
 
 exports.book_list = (req, res, next) => {
-	  Book.find({}, 'title author')
+	Book.find({}, 'title author')
     .populate('author')
     .exec(function (err, list_books) {
       if (err) { return next(err); }

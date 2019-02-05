@@ -96,3 +96,80 @@ exports.genre_create_post =  [
         }
     }
 ];
+
+exports.genre_delete_get = (req,res,next) => {
+	async.parallel({
+		genre: (callback) => {
+			Genre.findById(req.params.id).exec(callback)
+			},
+		genre_books: (callback) => {
+			Book.find({'genre': req.params.id}).exec(callback)
+		}	
+	}, (err, results) => {
+		if (err) {return next(err)}
+		if (results.genre == null) {
+			res.redirect('/catalog/genres')
+		}
+		res.render('genre_delete',{title: 'Delete genre', genre: results.genre, genre_books: results.genre_books})
+	})
+}
+
+exports.genre_delete_post = (req,res,next) => {
+	async.parallel({
+		genre: (callback) => {
+			Genre.findById(req.params.id).exec(callback)
+			},
+		genre_books: (callback) => {
+			Book.find({'genre': req.params.id}).exec(callback)
+		}	
+	}, (err, results) => {
+		if (err) {return next(err)}
+		if (results.genre_books.length >0) {
+			res.render('genre_delete', {title:'Delete genre', genre: results.genre, genre_books: results.genre.books})
+			return;
+		}
+		else {
+			Genre.findByIdAndRemove(req.body.id, (err) => {
+				if (err) {return next(err)}
+				res.redirect('/catalog/genres')
+			})
+		}
+	})
+}
+
+exports.genre_update_get = (req,res,next) => {
+	Genre.findById(req.params.id).exec((err, genre) =>{
+		if (err){return next(err)}
+		if (genre == null) {
+			var err = new Error('Genre not found')
+			err.status = 404
+			return next(err)
+		}
+		res.render('genre_form', {title:'Update genre', genre: genre})
+	})
+}
+
+exports.genre_update_post = [
+	body('name', 'Genre name required').isLength({min:1}).trim(),
+	
+	sanitizeBody('name').trim().escape(),
+	
+	(req,res,next) => {
+		const errors = validationResult(req)
+		var genre = new Genre(
+		{
+			name: req.body.name,
+			_id:req.params.id
+		}
+		)
+		if(!errors.isEmpty()){
+			res.render('genre_form',{title: 'Update genre',genre: genre, errors: errors.array()})
+			return
+		} else {
+			Genre.findByIdAndUpdate(req.params.id, genre,{},(err,thegenre) => {
+				if(err){return next(err)}
+				res.redirect(thegenre.url)
+			})
+		}
+	}
+]
